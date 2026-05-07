@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+postgres_data/
+*.log
