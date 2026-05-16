@@ -2,8 +2,12 @@
 node_modules/
 dist/
 coverage/
+
+# Environment files (never commit secrets)
 .env
 .env.*
+
 npm-debug.log*
 yarn-debug.log*
 .vscode/
+
