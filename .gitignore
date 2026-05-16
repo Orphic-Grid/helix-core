@@ -1,77 +1,43 @@
-# Root .gitignore for HelixCore-NeuralAxis
-
-# Node
+# Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.pnp*
 
-# Next.js / build outputs
+# Builds
 .next/
-out/
 dist/
 build/
-
-# Nest / server
-dist/
+out/
 coverage/
 
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 venv/
 .venv/
-env/
-ENV/
-pip-wheel-metadata/
-*.egg-info/
 
-# Environment files (never commit secrets)
+# Environment
 .env
 .env.*
-
-# Keep example env files (if you add them later)
 !.env.example
-!.env.*.example
 
+# Logs
+*.log
+logs/
 
-# OS files
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Logs
-logs/
-*.log
-
-# IDEs
-.vscode/
-.idea/
-*.iml
+# Cache/temp
+.cache/
+tmp/
+temp/
 
 # Docker
 docker-compose.override.yml
 
-# Misc
-.cache/
-tmp/
-temp/
-coverage/
-.pytest_cache/
-.mypy_cache/
-.venv/
-htmlcov/
-node_modules/
-.next/
-dist/
-.venv/
-__pycache__/
-.pytest_cache/
-.env
-.env.*
-!.env.example
+# Database
 postgres_data/
-*.log
