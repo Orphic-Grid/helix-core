@@ -1,6 +1,17 @@
-import type { Alert, Patient, User, ConsentRequest, EmergencySession } from './types';
+import type {
+  Alert,
+  Patient,
+  User,
+  ConsentRequest,
+  EmergencySession,
+  AuditLog,
+  Hospital,
+  ManagedUser,
+  CreateManagedUserInput,
+  CreatePatientInput,
+} from './types';
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'http://localhost:4000/api/v1');
+const API_URL = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? '/api/v1');
 
 export async function login(email: string, password: string): Promise<{ accessToken: string; user: User }> {
   return request('/auth/login', {
@@ -17,9 +28,54 @@ export async function logout(): Promise<{ success: boolean }> {
   return request('/auth/logout', { method: 'POST' });
 }
 
+export async function getAuditLogs(token: string): Promise<AuditLog[]> {
+  return request('/audit-logs', { method: 'GET' }, token);
+}
+
+export async function getHospitals(token: string): Promise<Hospital[]> {
+  return request('/hospitals', { method: 'GET' }, token);
+}
+
+export async function getHospitalOverview(token: string): Promise<Record<string, number>> {
+  return request('/hospitals/overview', { method: 'GET' }, token);
+}
+
+export async function getUsers(token: string): Promise<ManagedUser[]> {
+  return request('/users', { method: 'GET' }, token);
+}
+
+export async function createUser(token: string, input: CreateManagedUserInput): Promise<ManagedUser> {
+  return request('/users', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }, token);
+}
+
+export async function setUserStatus(token: string, id: string, isActive: boolean): Promise<ManagedUser> {
+  return request(`/users/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  }, token);
+}
+
+export async function getActiveSessions(token: string): Promise<Record<string, unknown>[]> {
+  return request('/users/sessions', { method: 'GET' }, token);
+}
+
 export async function searchPatients(token: string, query: string): Promise<Patient[]> {
   if (!query.trim()) return [];
   return request(`/patients/search?q=${encodeURIComponent(query)}`, { method: 'GET' }, token);
+}
+
+export async function getRecentPatients(token: string): Promise<Patient[]> {
+  return request('/patients/recent/onboarded', { method: 'GET' }, token);
+}
+
+export async function createPatient(token: string, input: CreatePatientInput): Promise<Patient> {
+  return request('/patients', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }, token);
 }
 
 export async function getPatient(token: string, id: string): Promise<Patient> {
@@ -70,7 +126,30 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || response.statusText || `Request failed: ${response.status}`);
+    let message = response.statusText || `Request failed: ${response.status}`;
+
+    const parseJson = (value: string) => {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return null;
+      }
+    };
+
+    const body = parseJson(text);
+    if (body && typeof body === 'object') {
+      message = body.message || body.error || message;
+    } else if (typeof body === 'string') {
+      message = body;
+    } else if (text) {
+      message = text;
+    }
+
+    if (response.status === 401) {
+      message = path === '/auth/login' ? 'Invalid email or password' : 'Unauthorized request';
+    }
+
+    throw new Error(message);
   }
 
   return response.json();

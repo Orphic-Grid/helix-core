@@ -27,6 +27,9 @@ docker-compose.yml
 ```text
 Doctor: doctor@helix.local / password123
 Admin:  admin@helix.local / password123
+Patient: rahul@helix.local / password123 (ID: HX-10021)
+Patient: neha@helix.local / password123 (ID: HX-10022)
+Patient: farhan@helix.local / password123 (ID: HX-10023)
 ```
 
 ## Run Locally

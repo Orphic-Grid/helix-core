@@ -1,8 +1,81 @@
 export type User = {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
-  role: 'doctor' | 'admin';
+  role: UserRole;
+  hospitalId: string | null;
+  department: string | null;
+  patientId?: string | null;
+  permissions: PermissionClaims;
+};
+
+export type UserRole = 'SUPER_ADMIN' | 'HOSPITAL_ADMIN' | 'DOCTOR' | 'EMERGENCY_STAFF' | 'PATIENT';
+
+export type PermissionClaims = {
+  can_view_patient: boolean;
+  can_manage_users: boolean;
+  can_use_emergency_mode: boolean;
+  can_export_data: boolean;
+};
+
+export type AuditLog = {
+  id: string;
+  user_name?: string;
+  hospital_name?: string;
+  patient_name?: string;
+  patient_id?: string;
+  action: string;
+  emergency_override: boolean;
+  ip_address?: string;
+  timestamp: string;
+};
+
+export type Hospital = {
+  id: string;
+  name: string;
+  type: string;
+  address?: string;
+  sync_enabled: boolean;
+  active_users: number;
+};
+
+export type ManagedUser = {
+  id: string;
+  full_name: string;
+  email: string;
+  role: UserRole;
+  department?: string;
+  is_active: boolean;
+  hospital_id?: string | null;
+  hospital_name?: string;
+};
+
+export type CreateManagedUserInput = {
+  fullName: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  hospitalId?: string;
+  department?: string;
+};
+
+export type CreatePatientInput = {
+  name: string;
+  govtId: string;
+  abhaId?: string;
+  age: number;
+  gender: string;
+  phone: string;
+  bloodGroup: string;
+  chronicConditions?: string[];
+  allergies?: string[];
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  providerId: string;
+  doctorName?: string;
+  department?: string;
+  externalPatientId?: string;
+  intakeNote?: string;
 };
 
 export type HealthcareProvider = {

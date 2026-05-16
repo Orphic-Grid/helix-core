@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('doctor', 'admin')),
+  patient_id TEXT,
+  role TEXT NOT NULL CHECK (role IN ('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'EMERGENCY_STAFF', 'PATIENT', 'admin', 'doctor')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -231,6 +232,12 @@ INSERT INTO users (name, email, password_hash, role) VALUES
   ('Hospital Admin', 'admin@helix.local', '$2a$10$e.fTmOAQAr8j/zD56cgOFe0xkHwxpQTLkK2c5EGCDVw2SXGxX/q8i', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
+INSERT INTO users (name, email, password_hash, role, patient_id) VALUES
+  ('Rahul Mehta', 'rahul@helix.local', '$2a$10$e.fTmOAQAr8j/zD56cgOFe0xkHwxpQTLkK2c5EGCDVw2SXGxX/q8i', 'PATIENT', 'HX-10021'),
+  ('Neha Iyer', 'neha@helix.local', '$2a$10$e.fTmOAQAr8j/zD56cgOFe0xkHwxpQTLkK2c5EGCDVw2SXGxX/q8i', 'PATIENT', 'HX-10022'),
+  ('Farhan Ali', 'farhan@helix.local', '$2a$10$e.fTmOAQAr8j/zD56cgOFe0xkHwxpQTLkK2c5EGCDVw2SXGxX/q8i', 'PATIENT', 'HX-10023')
+ON CONFLICT (email) DO NOTHING;
+
 INSERT INTO healthcare_providers (id, name, type, network_id, address, contact_phone) VALUES
   ('550e8400-e29b-41d4-a716-446655440001', 'Apollo Hospital', 'hospital', 'APOLLO_NETWORK', 'Jubilee Hills, Hyderabad', '+914048485555'),
   ('550e8400-e29b-41d4-a716-446655440002', 'MetroCare Trauma Center', 'emergency', 'METROCARE_NETWORK', 'Hitech City, Hyderabad', '+914023456789'),
@@ -286,7 +293,7 @@ INSERT INTO vitals (patient_id, provider_id, type, value, unit, recorded_at, rec
 ON CONFLICT DO NOTHING;
 
 INSERT INTO clinical_insights (patient_id, insight_type, title, explanation, confidence_score, severity, supporting_data, recommendations) VALUES
-  ('HX-10021', 'risk_trend', 'Worsening Hypertensive Trend', 'Blood pressure has increased 17% over last 8 months across 3 visits. Combined with elevated glucose and medication inconsistency, cardiovascular risk is rising.', 0.92, 'high', '{"bp_trend": [146/94, 152/98, 168/104], "glucose_trend": [196, 218], "medication_adherence": 0.75}', ARRAY['Consider adding ACE inhibitor', 'Intensify lifestyle counseling', 'Schedule cardiology follow-up within 2 weeks']::text[]),
+  ('HX-10021', 'risk_trend', 'Worsening Hypertensive Trend', 'Blood pressure has increased 17% over last 8 months across 3 visits. Combined with elevated glucose and medication inconsistency, cardiovascular risk is rising.', 0.92, 'high', '{"bp_trend": [[146,94],[152,98],[168,104]], "glucose_trend": [196, 218], "medication_adherence": 0.75}'::jsonb, ARRAY['Consider adding ACE inhibitor', 'Intensify lifestyle counseling', 'Schedule cardiology follow-up within 2 weeks']::text[]),
   ('HX-10021', 'compliance_issue', 'Poor Diabetes Medication Adherence', 'Metformin adherence score of 75% with rising HbA1c from 7.8% to 8.2% over 6 months indicates poor medication compliance.', 0.88, 'medium', '{"adherence_score": 0.75, "hba1c_trend": [7.8, 8.0, 8.2], "missed_doses": 25}', ARRAY['Discuss medication barriers with patient', 'Consider simplified dosing regimen', 'Implement medication reminder system', 'Review side effects']::text[]),
   ('HX-10023', 'emergency_risk', 'Fall Risk with Anticoagulation', 'Recent fall with bruising while on warfarin therapy increases bleeding risk. INR stable at 3.1 but fall risk factors present.', 0.85, 'high', '{"recent_fall": true, "anticoagulant": "warfarin", "inr": 3.1, "age": 71, "home_hazards": true}', ARRAY['Comprehensive falls assessment', 'Home safety evaluation', 'Consider temporary warfarin hold if high fall risk', 'Physical therapy referral']::text[]),
   ('HX-10022', 'care_gap', 'Missing Pulmonary Function Tests', 'Asthma diagnosis established but no PFTs recorded in 14 months. Current reliance on symptom-based management only.', 0.79, 'medium', '{"last_pft": "2025-02-15", "days_since_pft": 440, "rescue_inhaler_use": "moderate"}', ARRAY['Schedule spirometry within 4 weeks', 'Consider asthma control assessment', 'Review inhaler technique', 'Update asthma action plan']::text[])
@@ -322,3 +329,94 @@ INSERT INTO medical_records (patient_id, provider_id, record_type, title, conten
   ('HX-10023', '550e8400-e29b-41d4-a716-446655440002', 'discharge_summary', 'Fall-Related Injury Assessment Discharge', 'Patient presented to emergency after mechanical fall at home. Imaging studies including hip X-ray and head CT performed to rule out fractures and intracranial hemorrhage. All imaging negative. Patient cleared for discharge. Discharged in stable condition with pain management and home safety recommendations.', 'Mechanical fall at home with negative imaging workup. Patient discharged in stable condition.', 'HIGH: Advanced age (71) with anticoagulation therapy increases bleeding risk. Fall risk factors present in home environment.', ARRAY['Home safety evaluation', 'Physical therapy referral for balance training', 'Continue anticoagulation with close INR monitoring', 'Implement fall prevention measures']::text[], '2026-04-30T11:00:00+05:30', 'Dr. Reddy'),
   ('HX-10023', '550e8400-e29b-41d4-a716-446655440004', 'consultation_note', 'Cardiology Follow-Up: Atrial Fibrillation', 'Atrial fibrillation patient presenting for routine evaluation. Patient on Warfarin with current INR 3.1 (within therapeutic target 2-3). Heart rate 72 bpm with irregular rhythm noted on auscultation. Echocardiogram from 2025-12 shows preserved LV function. Patient tolerating current regimen well. Continue anticoagulation and monitor INR monthly.', 'Stable atrial fibrillation with well-controlled ventricular rate and therapeutic anticoagulation. LV function preserved.', 'MEDIUM: Age and anticoagulation therapy managed appropriately. Risk of thromboembolism controlled. Fall risk assessment needed given recent fall.', ARRAY['Continue Warfarin 3mg daily', 'Monitor INR monthly', 'Continue rate control with current regimen', 'Consider fall risk reduction strategies']::text[], '2026-04-08T17:00:00+05:30', 'Dr. Sharma')
 ON CONFLICT DO NOTHING;
+
+-- Enterprise authentication and authorization model
+CREATE TABLE IF NOT EXISTS hospitals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'hospital',
+  address TEXT,
+  sync_enabled BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO hospitals (id, name, type, address, sync_enabled) VALUES
+  ('550e8400-e29b-41d4-a716-446655440001', 'Apollo Hospital', 'hospital', 'Jubilee Hills, Hyderabad', true),
+  ('550e8400-e29b-41d4-a716-446655440002', 'MetroCare Trauma Center', 'emergency', 'Hitech City, Hyderabad', true),
+  ('550e8400-e29b-41d4-a716-446655440003', 'City Diagnostics', 'diagnostic_center', 'Banjara Hills, Hyderabad', true),
+  ('550e8400-e29b-41d4-a716-446655440004', 'Dr. Sharma Clinic', 'clinic', 'Gachibowli, Hyderabad', true)
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;
+UPDATE users SET full_name = name WHERE full_name IS NULL;
+ALTER TABLE users ALTER COLUMN full_name SET NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS hospital_id UUID REFERENCES hospitals(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS department TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+  CHECK (role IN ('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'EMERGENCY_STAFF', 'PATIENT', 'admin', 'doctor'));
+UPDATE users SET role = CASE role WHEN 'admin' THEN 'HOSPITAL_ADMIN' WHEN 'doctor' THEN 'DOCTOR' ELSE role END;
+UPDATE users SET hospital_id = '550e8400-e29b-41d4-a716-446655440001' WHERE hospital_id IS NULL AND role <> 'SUPER_ADMIN';
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+  CHECK (role IN ('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'EMERGENCY_STAFF', 'PATIENT'));
+
+INSERT INTO users (full_name, name, email, password_hash, role, hospital_id, department) VALUES
+  ('Helix Security Command', 'Helix Security Command', 'superadmin@helix.local', '$2a$10$e.fTmOAQAr8j/zD56cgOFe0xkHwxpQTLkK2c5EGCDVw2SXGxX/q8i', 'SUPER_ADMIN', NULL, 'Platform Security'),
+  ('Emergency Intake Lead', 'Emergency Intake Lead', 'emergency@helix.local', '$2a$10$e.fTmOAQAr8j/zD56cgOFe0xkHwxpQTLkK2c5EGCDVw2SXGxX/q8i', 'EMERGENCY_STAFF', '550e8400-e29b-41d4-a716-446655440002', 'Emergency Medicine')
+ON CONFLICT (email) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  role TEXT UNIQUE NOT NULL CHECK (role IN ('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'EMERGENCY_STAFF', 'PATIENT')),
+  can_view_patient BOOLEAN NOT NULL DEFAULT false,
+  can_manage_users BOOLEAN NOT NULL DEFAULT false,
+  can_use_emergency_mode BOOLEAN NOT NULL DEFAULT false,
+  can_export_data BOOLEAN NOT NULL DEFAULT false
+);
+
+INSERT INTO permissions (role, can_view_patient, can_manage_users, can_use_emergency_mode, can_export_data) VALUES
+  ('SUPER_ADMIN', true, true, true, true),
+  ('HOSPITAL_ADMIN', true, true, true, true),
+  ('DOCTOR', true, false, true, false),
+  ('EMERGENCY_STAFF', true, false, true, false),
+  ('PATIENT', false, false, false, false)
+ON CONFLICT (role) DO UPDATE SET
+  can_view_patient = EXCLUDED.can_view_patient,
+  can_manage_users = EXCLUDED.can_manage_users,
+  can_use_emergency_mode = EXCLUDED.can_use_emergency_mode,
+  can_export_data = EXCLUDED.can_export_data;
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  refresh_token_hash TEXT NOT NULL,
+  ip_address TEXT,
+  device_info TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS source_hospital UUID REFERENCES hospitals(id) ON DELETE SET NULL;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS emergency_override BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address TEXT;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS timestamp TIMESTAMPTZ NOT NULL DEFAULT now();
+
+CREATE TABLE IF NOT EXISTS consent_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  granted_to_hospital UUID REFERENCES hospitals(id) ON DELETE SET NULL,
+  consent_scope TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_users_hospital_id ON users(hospital_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_patient_id ON audit_logs(patient_id);

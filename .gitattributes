@@ -1,0 +1,9 @@
+# Set default behavior to normalize line endings
+* text=auto
+
+# Force LF for source files used in this project
+*.ts eol=lf
+*.tsx eol=lf
+*.js eol=lf
+*.jsx eol=lf
+*.py eol=lf

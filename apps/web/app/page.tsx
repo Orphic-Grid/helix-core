@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   getAlerts,
   getPatient,
@@ -10,12 +11,16 @@ import {
   searchPatients,
   requestEmergencyAccess,
 } from '../lib/api';
-import type { Alert, Patient, User } from '../lib/types';
+import { loadStoredSession, normalizeUser, saveLoginEmail, saveStoredSession, clearStoredSession } from '../lib/session';
+import type { Alert, Patient, User, UserRole } from '../lib/types';
 import LoginPage from './components/LoginPage';
 import Header from './components/Header';
 import PatientSidebar from './components/PatientSidebar';
 import PatientWorkspace from './components/PatientWorkspace';
+import PatientDashboard from './components/PatientDashboard';
 import { Database, TrendingUp, Brain } from 'lucide-react';
+
+type RawUserData = User | ({ name?: string } & Record<string, unknown>);
 
 export default function Home() {
   const [token, setToken] = useState('');
@@ -26,29 +31,44 @@ export default function Home() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [email, setEmail] = useState('doctor@helix.local');
   const [password, setPassword] = useState('password123');
+  const [rememberMe, setRememberMe] = useState(true);
+  const [infoMessage, setInfoMessage] = useState('');
   const [error, setError] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [recordLoading, setRecordLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [showEmergencyMode, setShowEmergencyMode] = useState(false);
   const [liveSyncStatus, setLiveSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
+  const [sessionReady, setSessionReady] = useState(false);
+  const router = useRouter();
 
   /* ── Bootstrap session ───────────────────────── */
+
   useEffect(() => {
-    const storedToken = window.localStorage.getItem('helix_token');
-    const storedUser = window.localStorage.getItem('helix_user');
-    if (storedToken) setToken(storedToken);
-    if (storedUser) {
-      try { setUser(JSON.parse(storedUser)); } catch {}
+    const stored = loadStoredSession();
+    if (stored.token) setToken(stored.token);
+    if (stored.user) setUser(stored.user);
+    if (stored.email) setEmail(stored.email);
+    setRememberMe(stored.rememberEmail);
+
+    if (!stored.token) {
+      setSessionReady(true);
+      return;
     }
+
     refreshSession()
       .then((session) => {
+        const normalized = normalizeUser(session.user);
         setToken(session.accessToken);
-        setUser(session.user);
-        window.localStorage.setItem('helix_token', session.accessToken);
-        window.localStorage.setItem('helix_user', JSON.stringify(session.user));
+        setUser(normalized);
+        saveStoredSession(session.accessToken, normalized, stored.rememberEmail, session.user.email);
       })
-      .catch(() => {});
+      .catch(() => {
+        clearStoredSession();
+        setToken('');
+        setUser(null);
+      })
+      .finally(() => setSessionReady(true));
   }, []);
 
   /* ── Debounced search ────────────────────────── */
@@ -84,17 +104,34 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [selected]);
 
+  useEffect(() => {
+    if (!sessionReady || !user) return;
+    if (user.role === 'PATIENT') {
+      router.replace('/patient');
+      return;
+    }
+    const routeMap: Record<UserRole, string> = {
+      SUPER_ADMIN: '/admin',
+      HOSPITAL_ADMIN: '/hospital',
+      DOCTOR: '/doctor',
+      EMERGENCY_STAFF: '/emergency',
+      PATIENT: '/patient',
+    };
+    router.replace(routeMap[user.role]);
+  }, [user, router, sessionReady]);
+
   /* ── Handlers ────────────────────────────────── */
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
+    setInfoMessage('');
     setAuthLoading(true);
     try {
       const session = await login(email, password);
+      const normalized = normalizeUser(session.user);
       setToken(session.accessToken);
-      setUser(session.user);
-      window.localStorage.setItem('helix_token', session.accessToken);
-      window.localStorage.setItem('helix_user', JSON.stringify(session.user));
+      setUser(normalized);
+      saveStoredSession(session.accessToken, normalized, rememberMe, email);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -137,7 +174,10 @@ export default function Home() {
         'red',
         'Emergency department admission — patient unconscious',
       );
-      if (response.success) setSelected(response.patient);
+      if (response.success) {
+        setSelected(response.patient);
+        setShowEmergencyMode(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Emergency access failed');
     }
@@ -145,8 +185,7 @@ export default function Home() {
 
   async function handleLogout() {
     try { await logoutRequest(); } catch {}
-    window.localStorage.removeItem('helix_token');
-    window.localStorage.removeItem('helix_user');
+    clearStoredSession();
     setToken('');
     setUser(null);
     setSelected(null);
@@ -155,64 +194,50 @@ export default function Home() {
   }
 
   /* ── Render ──────────────────────────────────── */
+  if (!sessionReady) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-700">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-brand-500 border-t-transparent animate-spin" />
+          <p className="text-sm font-medium">Validating session…</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <LoginPage
         email={email}
         password={password}
+        rememberMe={rememberMe}
+        infoMessage={infoMessage}
         error={error}
         loading={authLoading}
         onEmailChange={setEmail}
         onPasswordChange={setPassword}
+        onRememberChange={(value) => {
+          setRememberMe(value);
+          saveLoginEmail(email, value);
+        }}
+        onForgotPassword={() => setInfoMessage('Contact your Helix administrator to reset your password.')}
         onSubmit={handleLogin}
       />
     );
   }
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-slate-100">
-      <PatientSidebar
-        query={query}
-        onQueryChange={setQuery}
-        results={results}
-        loading={searchLoading}
-        onSelectPatient={selectPatient}
-        selectedPatientId={selected?.id ?? null}
-        emergencyMode={showEmergencyMode}
-        onToggleEmergency={() => setShowEmergencyMode((v) => !v)}
-      />
-
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-        <Header
-          user={user}
-          onLogout={handleLogout}
-          liveSyncStatus={liveSyncStatus}
-          alertCount={alerts.filter((a) => a.severity === 'critical').length}
-        />
-
-        <main className="flex-1 overflow-hidden">
-          {recordLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <div className="mx-auto h-9 w-9 rounded-full border-[3px] border-brand-500 border-t-transparent animate-spin mb-4" />
-                <p className="text-sm font-medium text-slate-500">Loading patient records…</p>
-              </div>
-            </div>
-          ) : selected ? (
-            <PatientWorkspace
-              key={selected.id}
-              patient={selected}
-              alerts={alerts}
-              onEmergencyAccess={handleEmergencyAccess}
-              emergencyMode={showEmergencyMode}
-            />
-          ) : (
-            <EmptyDashboard />
-          )}
-        </main>
+  if (user.role !== 'PATIENT') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-10">
+        <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+          <p className="text-lg font-semibold text-slate-900">Routing you to your clinical workspace...</p>
+          <p className="mt-3 text-sm text-slate-500">Loading your protected enterprise dashboard and applying your role-based workspace.</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <PatientDashboard initialUser={user} initialToken={token} />;
 }
 
 function EmptyDashboard() {

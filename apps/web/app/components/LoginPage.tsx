@@ -1,24 +1,35 @@
-import { Activity, Lock, Shield, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { Activity, Eye, EyeOff, Lock, Shield, RefreshCw } from 'lucide-react';
 
 interface LoginPageProps {
   email: string;
   password: string;
+  rememberMe: boolean;
+  infoMessage?: string;
   error: string;
   loading: boolean;
   onEmailChange: (v: string) => void;
   onPasswordChange: (v: string) => void;
+  onRememberChange: (value: boolean) => void;
+  onForgotPassword: () => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
 }
 
 export default function LoginPage({
   email,
   password,
+  rememberMe,
+  infoMessage,
   error,
   loading,
   onEmailChange,
   onPasswordChange,
+  onRememberChange,
+  onForgotPassword,
   onSubmit,
 }: LoginPageProps) {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <main
       className="min-h-screen flex items-center justify-center relative overflow-hidden"
@@ -107,27 +118,61 @@ export default function LoginPage({
                   Forgot password?
                 </button>
               </div>
-              <input
-                type="password"
-                required
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-slate-600 border transition focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  borderColor: 'rgba(255,255,255,0.10)',
-                }}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => onPasswordChange(e.target.value)}
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-slate-600 border transition focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    borderColor: 'rgba(255,255,255,0.10)',
+                  }}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => onPasswordChange(e.target.value)}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-3 inline-flex items-center rounded-full px-2 text-slate-300 hover:text-white transition"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
-            {/* Error */}
+            {/* Error / Info */}
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-300 text-sm">
                 {error}
               </div>
             )}
+            {!error && infoMessage && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-emerald-200 text-sm">
+                {infoMessage}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 text-sm text-slate-300">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => onRememberChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 bg-slate-900 text-brand-500 focus:ring-brand-500"
+                />
+                Remember my email
+              </label>
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="text-slate-300 hover:text-white transition"
+              >
+                Forgot password?
+              </button>
+            </div>
 
             {/* Submit */}
             <button

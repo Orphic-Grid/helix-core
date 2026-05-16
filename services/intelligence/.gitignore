@@ -1,0 +1,13 @@
+# services/intelligence (Python)
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+.env
+.ipynb_checkpoints/
+pip-wheel-metadata/
+*.egg-info/
+.pytest_cache/

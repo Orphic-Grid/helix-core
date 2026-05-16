@@ -1,16 +1,37 @@
 export type RequestUser = {
   id: string;
   email: string;
-  name: string;
-  role: 'doctor' | 'admin';
+  fullName: string;
+  role: UserRole;
+  hospitalId: string | null;
+  department: string | null;
+  patientId?: string | null;
+  permissions: PermissionClaims;
+};
+
+export type UserRole = 'SUPER_ADMIN' | 'HOSPITAL_ADMIN' | 'DOCTOR' | 'EMERGENCY_STAFF' | 'PATIENT';
+
+export type PermissionClaims = {
+  can_view_patient: boolean;
+  can_manage_users: boolean;
+  can_use_emergency_mode: boolean;
+  can_export_data: boolean;
 };
 
 export type UserRow = {
   id: string;
-  name: string;
+  full_name: string;
   email: string;
   password_hash: string;
-  role: 'doctor' | 'admin';
+  role: UserRole;
+  hospital_id: string | null;
+  patient_id?: string | null;
+  department: string | null;
+  is_active: boolean;
+  can_view_patient?: boolean;
+  can_manage_users?: boolean;
+  can_use_emergency_mode?: boolean;
+  can_export_data?: boolean;
 };
 
 export type HealthcareProvider = {

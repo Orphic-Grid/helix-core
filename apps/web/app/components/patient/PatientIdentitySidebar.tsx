@@ -113,20 +113,26 @@ export default function PatientIdentitySidebar({ patient, emergencyMode }: Patie
           </h3>
         </div>
         <div className="space-y-2">
-          {approvedProviders.slice(0, 3).map((provider) => (
-            <div key={provider.id} className="space-y-1">
-              <p className={`text-xs font-semibold ${emergencyMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                {provider.provider?.name || `Provider ${provider.provider_id}`}
-              </p>
-              <p className={`text-xxs ${emergencyMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                {provider.provider?.type || 'Unknown'} · Last sync: {
-                  provider.last_sync_at 
-                    ? new Date(provider.last_sync_at).toLocaleDateString()
-                    : 'Never'
-                }
-              </p>
-            </div>
-          ))}
+          {approvedProviders.length > 0 ? (
+            approvedProviders.slice(0, 3).map((provider) => (
+              <div key={provider.id} className="space-y-1">
+                <p className={`text-xs font-semibold ${emergencyMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                  {provider.provider?.name || `Provider ${provider.provider_id}`}
+                </p>
+                <p className={`text-xxs ${emergencyMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {provider.provider?.type || 'Unknown'} · Last sync: {
+                    provider.last_sync_at 
+                      ? new Date(provider.last_sync_at).toLocaleDateString()
+                      : 'Never'
+                  }
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className={`text-xs ${emergencyMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              No approved providers are connected yet.
+            </p>
+          )}
           {approvedProviders.length > 3 && (
             <p className={`text-xxs ${emergencyMode ? 'text-slate-400' : 'text-slate-400'} pt-1`}>
               +{approvedProviders.length - 3} more providers

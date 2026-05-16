@@ -20,8 +20,9 @@ interface SystemActivity {
 export default function Header({ user, onLogout, liveSyncStatus, alertCount }: HeaderProps) {
   const [systemActivities, setSystemActivities] = useState<SystemActivity[]>([]);
   const [showActivity, setShowActivity] = useState(false);
+  const displayName = user.fullName || ('name' in user ? String(user.name) : user.email);
 
-  const initials = user.name
+  const initials = displayName
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -174,8 +175,8 @@ export default function Header({ user, onLogout, liveSyncStatus, alertCount }: H
             {initials}
           </div>
           <div className="leading-none">
-            <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-            <p className="text-xxs text-slate-400 capitalize">{user.role}</p>
+            <p className="text-sm font-semibold text-slate-900">{displayName}</p>
+            <p className="text-xxs text-slate-400">{user.role.replaceAll('_', ' ')}</p>
           </div>
           <button
             onClick={onLogout}

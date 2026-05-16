@@ -1,0 +1,10 @@
+# web app ignores (Next.js)
+node_modules/
+.next/
+out/
+.vercel/
+.env
+.env.*
+dist/
+.turbo/
+.vscode/

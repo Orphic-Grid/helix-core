@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from './database.service';
 import { 
   PatientProfile,
@@ -16,31 +16,187 @@ import {
   MedicationWithProvider,
   VitalWithProvider
 } from './types';
+import { RequestUser } from './types';
 
+type CreateApprovedPatientInput = {
+  name: string;
+  govtId: string;
+  abhaId?: string;
+  age: number;
+  gender: string;
+  phone: string;
+  bloodGroup: string;
+  chronicConditions?: string[];
+  allergies?: string[];
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  providerId: string;
+  doctorName?: string;
+  department?: string;
+  externalPatientId?: string;
+  intakeNote?: string;
+};
 
 @Injectable()
 export class PatientsService {
   constructor(private readonly db: DatabaseService) {}
 
-  async search(query: string) {
+  async search(query: string, user: RequestUser) {
     if (!query.trim()) {
       return [] as PatientRow[];
     }
 
     const term = `%${query.trim()}%`;
+    const scopeClause =
+      user.role === 'SUPER_ADMIN'
+        ? ''
+        : `AND EXISTS (
+            SELECT 1 FROM patient_provider_links scoped_link
+            WHERE scoped_link.patient_id = patients.id
+              AND scoped_link.provider_id = $2
+              AND scoped_link.consent_status = 'approved'
+          )`;
+    const params = user.role === 'SUPER_ADMIN' ? [term] : [term, user.hospitalId];
     const result = await this.db.query<PatientRow>(
       `SELECT id, govt_id, abha_id, name, age, gender, phone, blood_group, chronic_conditions, emergency_contact_name, emergency_contact_phone, allergies
        FROM patients
        WHERE deleted_at IS NULL AND (id ILIKE $1 OR govt_id ILIKE $1 OR phone ILIKE $1 OR name ILIKE $1 OR COALESCE(abha_id, '') ILIKE $1)
+       ${scopeClause}
        ORDER BY name ASC
        LIMIT 12`,
-      [term],
+      params,
     );
 
     return result.rows;
   }
 
-  async loadProfile(id: string, includeInactiveProviders = false) {
+  async recentOnboarded(user: RequestUser) {
+    const params: unknown[] = [];
+    const scope =
+      user.role === 'SUPER_ADMIN'
+        ? ''
+        : `WHERE EXISTS (
+            SELECT 1 FROM patient_provider_links ppl
+            WHERE ppl.patient_id = patients.id AND ppl.provider_id = $1
+          )`;
+    if (user.role !== 'SUPER_ADMIN') params.push(user.hospitalId);
+
+    const result = await this.db.query<PatientRow & { provider_name?: string; consent_status?: string }>(
+      `SELECT patients.id, patients.govt_id, patients.abha_id, patients.name, patients.age, patients.gender,
+              patients.phone, patients.blood_group, patients.chronic_conditions,
+              patients.emergency_contact_name, patients.emergency_contact_phone, patients.allergies,
+              hp.name AS provider_name, ppl.consent_status
+       FROM patients
+       LEFT JOIN patient_provider_links ppl ON ppl.patient_id = patients.id
+       LEFT JOIN healthcare_providers hp ON hp.id = ppl.provider_id
+       ${scope}
+       ORDER BY patients.created_at DESC
+       LIMIT 12`,
+      params,
+    );
+
+    return result.rows;
+  }
+
+  async createApprovedPatient(input: CreateApprovedPatientInput, user: RequestUser) {
+    if (user.role === 'HOSPITAL_ADMIN' && input.providerId !== user.hospitalId) {
+      throw new ForbiddenException('Hospital admins can only approve patients for their own hospital');
+    }
+
+    const provider = await this.db.query<{ id: string; name: string }>(
+      `SELECT id, name FROM healthcare_providers WHERE id = $1 AND is_active = true`,
+      [input.providerId],
+    );
+    if (!provider.rows[0]) {
+      throw new BadRequestException('Selected hospital/provider is not available');
+    }
+
+    const patientId = await this.nextPatientId();
+    try {
+      const patientResult = await this.db.query<PatientRow>(
+        `INSERT INTO patients (
+           id, govt_id, abha_id, name, age, gender, phone, blood_group,
+           chronic_conditions, emergency_contact_name, emergency_contact_phone, allergies
+         )
+         VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, $9, NULLIF($10, ''), NULLIF($11, ''), $12)
+         RETURNING id, govt_id, abha_id, name, age, gender, phone, blood_group,
+                   chronic_conditions, emergency_contact_name, emergency_contact_phone, allergies`,
+        [
+          patientId,
+          input.govtId.trim(),
+          input.abhaId?.trim() ?? '',
+          input.name.trim(),
+          input.age,
+          input.gender.trim(),
+          input.phone.trim(),
+          input.bloodGroup.trim(),
+          this.cleanList(input.chronicConditions),
+          input.emergencyContactName?.trim() ?? '',
+          input.emergencyContactPhone?.trim() ?? '',
+          this.cleanList(input.allergies),
+        ],
+      );
+
+      await this.db.query(
+        `INSERT INTO patient_provider_links (
+           patient_id, provider_id, external_patient_id, consent_status,
+           consent_requested_at, consent_approved_at, consent_expires_at, last_sync_at
+         )
+         VALUES ($1, $2, NULLIF($3, ''), 'approved', now(), now(), now() + interval '365 days', now())
+         ON CONFLICT (patient_id, provider_id) DO UPDATE SET
+           external_patient_id = EXCLUDED.external_patient_id,
+           consent_status = 'approved',
+           consent_approved_at = now(),
+           consent_expires_at = now() + interval '365 days',
+           last_sync_at = now()`,
+        [patientId, input.providerId, input.externalPatientId?.trim() ?? ''],
+      );
+
+      if (input.intakeNote?.trim()) {
+        await this.db.query(
+          `INSERT INTO medical_records (
+             patient_id, provider_id, record_type, title, content, summary,
+             recommendations, record_date, attending_physician
+           )
+           VALUES ($1, $2, 'admission_notes', 'Admin approved intake', $3, $4, $5, now(), NULLIF($6, ''))`,
+          [
+            patientId,
+            input.providerId,
+            input.intakeNote.trim(),
+            `Approved by ${user.fullName} for ${provider.rows[0].name}.`,
+            ['Verify identity documents', 'Confirm consent with patient at first visit'],
+            input.doctorName?.trim() ?? '',
+          ],
+        );
+      }
+
+      if (input.department?.trim() || input.doctorName?.trim()) {
+        await this.db.query(
+          `INSERT INTO medical_events (
+             patient_id, provider_id, type, title, description, event_date,
+             severity, department, attending_physician, is_emergency
+           )
+           VALUES ($1, $2, 'visit', 'Admin approved access', $3, now(), 'low', NULLIF($4, ''), NULLIF($5, ''), false)`,
+          [
+            patientId,
+            input.providerId,
+            `Access approved for ${provider.rows[0].name}.`,
+            input.department?.trim() ?? '',
+            input.doctorName?.trim() ?? '',
+          ],
+        );
+      }
+
+      return patientResult.rows[0];
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('duplicate key')) {
+        throw new BadRequestException('Patient with this government ID or ABHA ID already exists');
+      }
+      throw error;
+    }
+  }
+
+  async loadProfile(id: string, includeInactiveProviders = false, user?: RequestUser) {
     const patientResult = await this.db.query<PatientRow>(
       `SELECT id, govt_id, abha_id, name, age, gender, phone, blood_group, chronic_conditions, emergency_contact_name, emergency_contact_phone, allergies
        FROM patients
@@ -51,6 +207,25 @@ export class PatientsService {
     const patient = patientResult.rows[0];
     if (!patient) {
       throw new NotFoundException('Patient not found');
+    }
+
+    if (user && user.role !== 'SUPER_ADMIN') {
+      if (user.role === 'PATIENT') {
+        if (!user.patientId || user.patientId !== id) {
+          throw new ForbiddenException('Access denied to this patient record');
+        }
+      } else {
+        const access = await this.db.query<{ id: string }>(
+          `SELECT id FROM patient_provider_links
+           WHERE patient_id = $1 AND provider_id = $2 AND consent_status = 'approved'
+           LIMIT 1`,
+          [id, user.hospitalId],
+        );
+
+        if (!access.rows[0] && !includeInactiveProviders) {
+          throw new NotFoundException('Patient not found in hospital scope');
+        }
+      }
     }
 
     const [providerLinks, events, medications, vitals, insights, emergencySession, xrayReports, bloodTests, medicalRecords] = await Promise.all([
@@ -284,5 +459,16 @@ export class PatientsService {
     );
 
     return result.rows[0];
+  }
+
+  private cleanList(value?: string[]) {
+    return (value ?? []).map((item) => item.trim()).filter(Boolean);
+  }
+
+  private async nextPatientId() {
+    const result = await this.db.query<{ next_id: string }>(
+      `SELECT 'HX-' || lpad((10000 + COUNT(*) + 1)::text, 5, '0') AS next_id FROM patients`,
+    );
+    return result.rows[0]?.next_id ?? `HX-${Date.now().toString().slice(-5)}`;
   }
 }
