@@ -11,6 +11,7 @@ type JwtPayload = {
   role: UserRole;
   hospitalId: string | null;
   department: string | null;
+  patientId?: string | null;
   permissions: PermissionClaims;
 };
 
@@ -48,6 +49,7 @@ export class JwtAuthGuard implements CanActivate {
       role: payload.role,
       hospitalId: payload.hospitalId,
       department: payload.department,
+      patientId: payload.patientId ?? null,
       permissions: payload.permissions,
     };
     this.assertRouteAccess(context, request.user);

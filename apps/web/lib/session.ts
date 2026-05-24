@@ -25,18 +25,27 @@ export function normalizeUser(raw: RawUserData): User {
     id: String(raw.id),
     email: String(raw.email),
     fullName:
-      (raw as any).fullName ??
-      (typeof (raw as any).name === 'string' ? (raw as any).name : undefined) ??
+      (raw as { full_name?: unknown }).full_name?.toString() ??
+      (raw as { fullName?: unknown }).fullName?.toString() ??
+      (typeof (raw as { name?: unknown }).name === 'string' ? String((raw as { name?: unknown }).name) : undefined) ??
       String(raw.email),
-    role: normalizeRole((raw as any).role),
-    hospitalId: (raw as any).hospitalId ?? null,
-    department: (raw as any).department ?? null,
-    patientId: (raw as any).patientId ?? null,
+    role: normalizeRole((raw as { role?: unknown }).role),
+    hospitalId:
+      (raw as { hospitalId?: string | null }).hospitalId ??
+      (raw as { hospital_id?: string | null }).hospital_id ??
+      null,
+    department:
+      (raw as { department?: string | null }).department ??
+      null,
+    patientId:
+      (raw as { patientId?: string | null }).patientId ??
+      (raw as { patient_id?: string | null }).patient_id ??
+      null,
     permissions: {
-      can_view_patient: Boolean((raw as any).permissions?.can_view_patient),
-      can_manage_users: Boolean((raw as any).permissions?.can_manage_users),
-      can_use_emergency_mode: Boolean((raw as any).permissions?.can_use_emergency_mode),
-      can_export_data: Boolean((raw as any).permissions?.can_export_data),
+      can_view_patient: Boolean((raw as { permissions?: { can_view_patient?: unknown } }).permissions?.can_view_patient),
+      can_manage_users: Boolean((raw as { permissions?: { can_manage_users?: unknown } }).permissions?.can_manage_users),
+      can_use_emergency_mode: Boolean((raw as { permissions?: { can_use_emergency_mode?: unknown } }).permissions?.can_use_emergency_mode),
+      can_export_data: Boolean((raw as { permissions?: { can_export_data?: unknown } }).permissions?.can_export_data),
     },
   };
 }

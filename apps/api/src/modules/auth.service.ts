@@ -20,6 +20,7 @@ type TokenPayload = {
   role: RequestUser['role'];
   hospitalId: string | null;
   department: string | null;
+  patientId?: string | null;
   permissions: PermissionClaims;
   sessionId?: string;
 };
@@ -173,7 +174,7 @@ export class AuthService {
   async loadUser(userId: string) {
     const result = await this.db.query<UserRow>(
       `SELECT users.id, users.full_name, users.email, users.password_hash, users.role, users.hospital_id,
-              users.department, users.is_active, permissions.can_view_patient, permissions.can_manage_users,
+              users.patient_id, users.department, users.is_active, permissions.can_view_patient, permissions.can_manage_users,
               permissions.can_use_emergency_mode, permissions.can_export_data
        FROM users
        LEFT JOIN permissions ON permissions.role = users.role
@@ -199,6 +200,7 @@ export class AuthService {
       role: user.role,
       hospitalId: user.hospitalId,
       department: user.department,
+      patientId: user.patientId ?? null,
       permissions: user.permissions,
     };
   }

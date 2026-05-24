@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAlerts, getPatient, logout as logoutRequest } from '../../lib/api';
+import { normalizeUser } from '../../lib/session';
 import type { Alert, Patient, User } from '../../lib/types';
 import Header from './Header';
 import PatientWorkspace from './PatientWorkspace';
@@ -12,64 +13,45 @@ interface PatientDashboardProps {
   initialToken?: string;
 }
 
-type RawUserData = User | ({ name?: string } & Record<string, unknown>);
-
-function normalizeUser(raw: RawUserData): User {
-  const role = typeof raw.role === 'string' ? (raw.role.toUpperCase() as User['role']) : raw.role;
-  return {
-    ...raw,
-    role,
-    patientId: raw.patientId ?? null,
-    fullName: raw.fullName ?? ('name' in raw && typeof raw.name === 'string' ? raw.name : undefined) ?? raw.email,
-  } as User;
-}
-
 export default function PatientDashboard({ initialUser = null, initialToken = '' }: PatientDashboardProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(initialUser ? normalizeUser(initialUser) : null);
-  const [token, setToken] = useState(initialToken);
   const [patient, setPatient] = useState<Patient | null>(null);
+
+
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const storedToken = initialToken || window.localStorage.getItem('helix_token');
-    const storedUser = initialUser ? JSON.stringify(initialUser) : window.localStorage.getItem('helix_user');
+    const storedToken = initialToken || '';
+    const normalized = initialUser ? normalizeUser(initialUser) : null;
 
-    if (!storedToken || !storedUser) {
+    if (!storedToken || !normalized || normalized.role !== 'PATIENT' || !normalized.patientId) {
+      setLoading(false);
       router.replace('/');
       return;
     }
 
-    let parsed: User;
-    try {
-      parsed = initialUser ? initialUser : (JSON.parse(storedUser) as User & { name?: string });
-    } catch {
-      router.replace('/');
-      return;
-    }
-
-    const normalized = normalizeUser(parsed);
-    if (normalized.role !== 'PATIENT' || !normalized.patientId) {
-      router.replace('/');
-      return;
-    }
-
-    setUser(normalized);
-    setToken(storedToken);
     setLoading(true);
 
-    Promise.all([getPatient(storedToken, normalized.patientId), getAlerts(storedToken, normalized.patientId)])
+    Promise.all([
+      getPatient(storedToken, normalized.patientId),
+      getAlerts(storedToken, normalized.patientId),
+    ])
       .then(([patientData, alertData]) => {
         setPatient(patientData);
         setAlerts(alertData);
+        setUser(normalized);
+
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Unable to load your dashboard');
+        setError(err instanceof Error ? err.message : 'Unable to load your patient portal');
       })
       .finally(() => setLoading(false));
   }, [initialToken, initialUser, router]);
+
+
 
   async function handleLogout() {
     try {

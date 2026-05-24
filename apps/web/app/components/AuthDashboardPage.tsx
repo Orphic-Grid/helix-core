@@ -32,13 +32,14 @@ import {
 import { loadStoredSession, normalizeUser, saveLoginEmail, saveStoredSession, clearStoredSession } from '../../lib/session';
 import type { AuditLog, Hospital, ManagedUser, Patient, User, UserRole } from '../../lib/types';
 import LoginPage from './LoginPage';
+import DoctorDashboard from './DoctorDashboard';
 
 const roleHome: Record<UserRole, string> = {
   SUPER_ADMIN: '/admin',
   HOSPITAL_ADMIN: '/hospital',
   DOCTOR: '/doctor',
   EMERGENCY_STAFF: '/emergency',
-  PATIENT: '/doctor',
+  PATIENT: '/patient',
 };
 
 const allowedRoles: Record<string, UserRole[]> = {
@@ -46,6 +47,7 @@ const allowedRoles: Record<string, UserRole[]> = {
   '/hospital': ['HOSPITAL_ADMIN'],
   '/doctor': ['DOCTOR', 'HOSPITAL_ADMIN'],
   '/emergency': ['DOCTOR', 'EMERGENCY_STAFF', 'HOSPITAL_ADMIN'],
+  '/patient': ['PATIENT'],
 };
 
 type Props = {
@@ -300,6 +302,10 @@ export default function AuthDashboardPage({ route }: Props) {
         </div>
       </main>
     );
+  }
+
+  if (route === '/doctor') {
+    return <DoctorDashboard token={token} user={user} onLogout={handleLogout} />;
   }
 
   return (

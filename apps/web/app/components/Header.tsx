@@ -29,43 +29,16 @@ export default function Header({ user, onLogout, liveSyncStatus, alertCount }: H
     .slice(0, 2)
     .toUpperCase();
 
-  // Simulate live system activities
+  // NOTE: Intentionally disabled simulated live activity updates.
+  // Those timers were causing frequent re-renders/blinking during session boot and tab navigation.
+  // Real activity should be wired from the backend/intelligence service as a controlled data source.
   useEffect(() => {
     const activities: SystemActivity[] = [
-      { id: '1', type: 'sync', message: 'Fetching records from MetroCare...', timestamp: new Date(), status: 'active' },
-      { id: '2', type: 'analysis', message: 'Risk model recalculated 4s ago', timestamp: new Date(Date.now() - 4000), status: 'complete' },
-      { id: '3', type: 'sync', message: 'Medication history synchronized', timestamp: new Date(Date.now() - 8000), status: 'complete' },
+      { id: '1', type: 'sync', message: 'Live activity feed ready', timestamp: new Date(), status: 'complete' },
     ];
     setSystemActivities(activities);
-
-    // Simulate new activities
-    const interval = setInterval(() => {
-      const newActivity: SystemActivity = {
-        id: Date.now().toString(),
-        type: Math.random() > 0.5 ? 'analysis' : 'sync',
-        message: Math.random() > 0.5 
-          ? 'Analyzing patient trends...' 
-          : `Syncing with ${['Apollo Hospital', 'MetroCare', 'City Diagnostics'][Math.floor(Math.random() * 3)]}...`,
-        timestamp: new Date(),
-        status: 'active'
-      };
-      
-      setSystemActivities(prev => [newActivity, ...prev.slice(0, 4)]);
-      
-      // Mark as complete after 2 seconds
-      setTimeout(() => {
-        setSystemActivities(prev => 
-          prev.map(activity => 
-            activity.id === newActivity.id 
-              ? { ...activity, status: 'complete' as const }
-              : activity
-          )
-        );
-      }, 2000);
-    }, 15000);
-
-    return () => clearInterval(interval);
   }, []);
+
 
   return (
     <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0 z-10 shadow-sm">
