@@ -2,32 +2,54 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { Pool, QueryResultRow } from 'pg';
-import { requiredEnv } from './env';
+import { firstEnv } from './env';
+
+const databaseUrl = firstEnv(
+  'DATABASE_URL',
+  'POSTGRES_URL',
+  'POSTGRES_PRISMA_URL',
+  'POSTGRES_URL_NON_POOLING',
+  'DATABASE_INTERNAL_URL',
+);
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy, OnModuleInit {
-  private readonly pool = new Pool({
-    connectionString: requiredEnv('DATABASE_URL'),
+  private readonly pool = databaseUrl ? new Pool({
+    connectionString: databaseUrl,
     max: Number(process.env.DB_POOL_MAX ?? 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
-  });
+  }) : null;
 
   async onModuleInit() {
+    if (!this.pool) {
+      console.warn('Database is not configured. Set DATABASE_URL to enable API data routes.');
+      return;
+    }
+
     await this.runInitialSchema();
     await this.ensureRuntimeSchema();
   }
 
   query<T extends QueryResultRow = QueryResultRow>(text: string, params: unknown[] = []) {
+    if (!this.pool) {
+      throw new Error('Database is not configured. Set DATABASE_URL.');
+    }
+
     return this.pool.query<T>(text, params);
   }
 
   async onModuleDestroy() {
-    await this.pool.end();
+    await this.pool?.end();
   }
 
   private async runInitialSchema() {
-    const existingUsers = await this.pool.query<{ exists: boolean }>(
+    if (!this.pool) {
+      return;
+    }
+
+    const pool = this.pool;
+    const existingUsers = await pool.query<{ exists: boolean }>(
       "SELECT to_regclass('public.users') IS NOT NULL AS exists",
     );
 
@@ -47,10 +69,14 @@ export class DatabaseService implements OnModuleDestroy, OnModuleInit {
     }
 
     const schema = readFileSync(schemaPath, 'utf8');
-    await this.pool.query(schema);
+    await pool.query(schema);
   }
 
   private async ensureRuntimeSchema() {
+    if (!this.pool) {
+      return;
+    }
+
     await this.pool.query(`
       CREATE EXTENSION IF NOT EXISTS pgcrypto;
 

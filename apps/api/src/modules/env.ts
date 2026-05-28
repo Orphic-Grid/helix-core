@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { hostname } from 'os';
 
 const LOCAL_DEFAULTS = {
   JWT_SECRET: 'local-dev-change-me',
@@ -19,6 +20,17 @@ export function requiredEnv(name: string) {
   return value;
 }
 
+export function firstEnv(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 export function secretEnv(name: keyof typeof LOCAL_DEFAULTS) {
   const value = process.env[name];
 
@@ -31,12 +43,16 @@ export function secretEnv(name: keyof typeof LOCAL_DEFAULTS) {
       return secretEnv('JWT_SECRET');
     }
 
-    const databaseUrl = process.env.DATABASE_URL;
-    if (databaseUrl) {
-      return createHash('sha256').update(`${name}:${databaseUrl}`).digest('hex');
-    }
+    const seed = [
+      process.env.DATABASE_URL,
+      process.env.RENDER_SERVICE_ID,
+      process.env.RENDER_EXTERNAL_HOSTNAME,
+      hostname(),
+      name,
+      'helix-core-production-fallback',
+    ].filter(Boolean).join(':');
 
-    throw new Error(`${name} is required in production`);
+    return createHash('sha256').update(seed).digest('hex');
   }
 
   return LOCAL_DEFAULTS[name];
