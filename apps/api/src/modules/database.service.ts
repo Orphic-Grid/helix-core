@@ -1,15 +1,8 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import { Pool, QueryResultRow } from 'pg';
-
-function requiredEnv(name: string) {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${name} is required`);
-  }
-
-  return value;
-}
+import { requiredEnv } from './env';
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy, OnModuleInit {
@@ -21,6 +14,7 @@ export class DatabaseService implements OnModuleDestroy, OnModuleInit {
   });
 
   async onModuleInit() {
+    await this.runInitialSchema();
     await this.ensureRuntimeSchema();
   }
 
@@ -30,6 +24,22 @@ export class DatabaseService implements OnModuleDestroy, OnModuleInit {
 
   async onModuleDestroy() {
     await this.pool.end();
+  }
+
+  private async runInitialSchema() {
+    const candidates = [
+      process.env.INIT_SQL_PATH,
+      resolve(process.cwd(), '../../infra/db/init.sql'),
+      resolve(process.cwd(), 'infra/db/init.sql'),
+    ].filter(Boolean) as string[];
+
+    const schemaPath = candidates.find((candidate) => existsSync(candidate));
+    if (!schemaPath) {
+      return;
+    }
+
+    const schema = readFileSync(schemaPath, 'utf8');
+    await this.pool.query(schema);
   }
 
   private async ensureRuntimeSchema() {

@@ -1,0 +1,57 @@
+services:
+  - type: pserv
+    name: helix-intelligence
+    runtime: docker
+    dockerfilePath: ./services/intelligence/Dockerfile
+    dockerContext: ./services/intelligence
+    envVars:
+      - key: PORT
+        value: 8000
+
+  - type: pserv
+    name: helix-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile.render
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: helix-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: INTELLIGENCE_HOSTPORT
+        fromService:
+          name: helix-intelligence
+          type: pserv
+          property: hostport
+
+  - type: web
+    name: helix-web
+    runtime: docker
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: ./apps/web
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: NEXT_PUBLIC_API_URL
+        value: /api/v1
+      - key: API_INTERNAL_HOSTPORT
+        fromService:
+          name: helix-api
+          type: pserv
+          property: hostport
+
+databases:
+  - name: helix-db
+    databaseName: helixcore
+    user: helix
+    postgresMajorVersion: "16"

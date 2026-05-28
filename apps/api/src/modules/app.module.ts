@@ -13,6 +13,7 @@ import { PatientsController } from './patients.controller';
 import { PatientsService } from './patients.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { secretEnv } from './env';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { UsersService } from './users.service';
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => ({
         global: true,
-        secret: config.get<string>('JWT_SECRET', 'local-dev-change-me'),
+        secret: config.get<string>('JWT_SECRET') ?? secretEnv('JWT_SECRET'),
         signOptions: { expiresIn: '15m' },
       }),
     }),

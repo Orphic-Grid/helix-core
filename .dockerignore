@@ -1,0 +1,11 @@
+.git
+.qodo
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.cache
+**/__pycache__
+**/.venv
+*.log
+api-debug*.log

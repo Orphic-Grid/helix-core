@@ -110,6 +110,9 @@ npm run dev
 
 ## Production Notes
 
+- Render deploys can use the root `render.yaml` Blueprint. It creates PostgreSQL, the private API, the private intelligence service, and the public web service.
+- The API reads `DATABASE_URL` from Render Postgres via `fromDatabase` and initializes `infra/db/init.sql` on first boot.
+- The web service proxies `/api/v1/*` to the private API through `API_INTERNAL_HOSTPORT`, so the browser can keep using same-origin requests.
 - Use strong `JWT_SECRET` and `JWT_REFRESH_SECRET` in production
 - Enable HTTPS at the proxy/load balancer level
 - Add an external rate-limit cache (Redis) for distributed deployments

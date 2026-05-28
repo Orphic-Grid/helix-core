@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { internalServiceUrl } from './env';
 import { PatientProfile, RiskAlert, ClinicalInsight } from './types';
 
 @Injectable()
@@ -43,7 +44,12 @@ export class AlertsService {
   }
 
   private async fetchRemoteAlerts(patient: PatientProfile): Promise<RiskAlert[]> {
-    const url = `${process.env.INTELLIGENCE_URL ?? 'http://localhost:8000'}/alerts`;
+    const serviceUrl = internalServiceUrl('INTELLIGENCE_URL', 'INTELLIGENCE_HOSTPORT');
+    if (!serviceUrl) {
+      return [];
+    }
+
+    const url = `${serviceUrl}/alerts`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3500);
 
