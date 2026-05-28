@@ -43,7 +43,7 @@ services:
       - key: PORT
         value: 3000
       - key: NEXT_PUBLIC_API_URL
-        value: /api/v1
+        value: https://helix-core.onrender.com
       - key: API_INTERNAL_HOSTPORT
         fromService:
           name: helix-api

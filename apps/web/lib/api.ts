@@ -11,7 +11,26 @@ import type {
   CreatePatientInput,
 } from './types';
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? '/api/v1');
+function getApiUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
+  if (!configured) {
+    return '/api/v1';
+  }
+
+  try {
+    const url = new URL(configured);
+    if (url.pathname === '/') {
+      url.pathname = '/api/v1';
+      return url.toString().replace(/\/$/, '');
+    }
+  } catch {
+    // Relative paths like /api/v1 are valid here.
+  }
+
+  return configured;
+}
+
+const API_URL = getApiUrl();
 
 export async function login(email: string, password: string): Promise<{ accessToken: string; user: User }> {
   return request('/auth/login', {
