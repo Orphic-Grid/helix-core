@@ -5,7 +5,7 @@ import { DatabaseService } from './database.service';
 import { secretEnv } from './env';
 import { PermissionClaims, RequestUser, UserRow } from './types';
 
-const REFRESH_SECRET = secretEnv('JWT_REFRESH_SECRET');
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? secretEnv('JWT_SECRET');
 const REFRESH_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 const COOKIE_NAME = 'helix_refresh_token';
 

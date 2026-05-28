@@ -27,6 +27,14 @@ export class DatabaseService implements OnModuleDestroy, OnModuleInit {
   }
 
   private async runInitialSchema() {
+    const existingUsers = await this.pool.query<{ exists: boolean }>(
+      "SELECT to_regclass('public.users') IS NOT NULL AS exists",
+    );
+
+    if (existingUsers.rows[0]?.exists) {
+      return;
+    }
+
     const candidates = [
       process.env.INIT_SQL_PATH,
       resolve(process.cwd(), '../../infra/db/init.sql'),

@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 const LOCAL_DEFAULTS = {
   JWT_SECRET: 'local-dev-change-me',
   JWT_REFRESH_SECRET: 'local-dev-refresh-secret',
@@ -25,6 +27,15 @@ export function secretEnv(name: keyof typeof LOCAL_DEFAULTS) {
   }
 
   if (isProduction()) {
+    if (name === 'JWT_REFRESH_SECRET') {
+      return secretEnv('JWT_SECRET');
+    }
+
+    const databaseUrl = process.env.DATABASE_URL;
+    if (databaseUrl) {
+      return createHash('sha256').update(`${name}:${databaseUrl}`).digest('hex');
+    }
+
     throw new Error(`${name} is required in production`);
   }
 
