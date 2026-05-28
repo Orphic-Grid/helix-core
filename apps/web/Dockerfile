@@ -17,10 +17,9 @@ RUN mkdir -p .next/static/css/app && cp .next/static/css/*.css .next/static/css/
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-ENV PORT=3000
-COPY package.json ./
-RUN npm install --only=production
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
+ENV HOSTNAME=0.0.0.0
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/public ./app/public
+COPY --from=build /app/.next/static ./app/.next/static
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "app/server.js"]
