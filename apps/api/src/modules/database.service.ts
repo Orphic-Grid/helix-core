@@ -4,7 +4,7 @@ import { Pool, QueryResultRow } from 'pg';
 @Injectable()
 export class DatabaseService implements OnModuleDestroy, OnModuleInit {
   private readonly pool = new Pool({
-    connectionString: process.env.DATABASE_URL ?? 'postgres://helix:helix@localhost:5432/helixcore',
+    connectionString: process.env.DATABASE_URL,
     max: Number(process.env.DB_POOL_MAX ?? 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
