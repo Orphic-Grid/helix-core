@@ -1,10 +1,20 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Pool, QueryResultRow } from 'pg';
 
+function requiredEnv(name: string) {
+  const value = process.env[name];
+
+  if (!value) {
+    throw new Error(`${name} is required`);
+  }
+
+  return value;
+}
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy, OnModuleInit {
   private readonly pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: requiredEnv('DATABASE_URL'),
     max: Number(process.env.DB_POOL_MAX ?? 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
